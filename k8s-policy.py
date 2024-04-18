@@ -7,41 +7,48 @@ def list_unmatched_network_policies():
 
     # Create API clients
     v1 = client.CoreV1Api()
+    apps_v1 = client.AppsV1Api()
+    batch_v1 = client.BatchV1Api()
     networking_v1 = client.NetworkingV1Api()
 
-    print("Kubernetes Policies with 0 endpoints attached are as below:\n")
+    print("Analyzing Kubernetes network policies...")
 
     # Open a file to write the unmatched policies
     with open('kubernetes-unused-policies.txt', 'w') as file:
+        # Print the header in the file
+        file.write(f"NAMESPACE     NAME OF POLICY          ENDPOINTS-ATTACHED    RESOURCES-IN-THE-NAMESPACE\n")
 
         # List all network policies
         network_policies = networking_v1.list_network_policy_for_all_namespaces()
 
         for np in network_policies.items:
-            # Check if pod_selector.match_labels is None or empty
-            if np.spec.pod_selector.match_labels:
-                # Build a selector string from the policy's podSelector
-                selector = ','.join([f'{k}={v}' for k, v in np.spec.pod_selector.match_labels.items()])
-            else:
-                # If match_labels is None or empty, it means all pods are selected
-                selector = None
+            namespace = np.metadata.namespace
+            policy_name = np.metadata.name
+            selector = ','.join([f'{k}={v}' for k, v in np.spec.pod_selector.match_labels.items()]) if np.spec.pod_selector.match_labels else None
 
-            # List all pods in the same namespace that match the policy's podSelector, if selector is not None
-            if selector:
-                pods = v1.list_namespaced_pod(np.metadata.namespace, label_selector=selector)
-            else:
-                # If selector is None, list all pods in the namespace
-                pods = v1.list_namespaced_pod(np.metadata.namespace)
+            pods = v1.list_namespaced_pod(namespace, label_selector=selector) if selector else v1.list_namespaced_pod(namespace)
+            endpoints_attached = len(pods.items)
 
-            pod_names = [pod.metadata.name for pod in pods.items]
+            # Check for any resource in the namespace
+            deployments = apps_v1.list_namespaced_deployment(namespace)
+            daemonsets = apps_v1.list_namespaced_daemon_set(namespace)
+            statefulsets = apps_v1.list_namespaced_stateful_set(namespace)
+            jobs = batch_v1.list_namespaced_job(namespace)
+            replica_sets = apps_v1.list_namespaced_replica_set(namespace)
 
-            # If no pods matched, print and write the policy name
-            if not pod_names:
-                policy_info = f"Policy '{np.metadata.namespace}/{np.metadata.name}' has no endpoints attached.\n"
-                print(policy_info)
-                file.write(policy_info.strip() + "\n")  # Write policy info to file without extra newlines
+            total_resources = sum([
+                len(deployments.items),
+                len(daemonsets.items),
+                len(statefulsets.items),
+                len(jobs.items),
+                len(replica_sets.items)
+            ])
 
-    print("\nThe output has also been written to kubernetes-unused-policies.txt. Analyze it for further information.")
+            # Check for existence of any resources in the namespace
+            if total_resources == 0 and endpoints_attached == 0:
+                file.write(f"{namespace: <13} {policy_name: <25} {endpoints_attached: <20} {total_resources}\n")
+
+    print("\nThe output has been written to kubernetes-unused-policies.txt. Please review it before any clean-up action.")
 
 if __name__ == "__main__":
     list_unmatched_network_policies()
