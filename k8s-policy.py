@@ -16,7 +16,7 @@ def list_unmatched_network_policies():
     # Open a file to write the unmatched policies
     with open('kubernetes-unused-policies.txt', 'w') as file:
         # Print the header in the file
-        file.write(f"NAMESPACE     NAME OF POLICY          ENDPOINTS-ATTACHED    RESOURCES-IN-THE-NAMESPACE\n")
+        file.write(f"NAMESPACE     NAME-OF-POLICY          ENDPOINTS-ATTACHED    RESOURCES-IN-THE-NAMESPACE\n")
 
         # List all network policies
         network_policies = networking_v1.list_network_policy_for_all_namespaces()
