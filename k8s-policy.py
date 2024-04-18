@@ -11,12 +11,14 @@ def list_unmatched_network_policies():
     batch_v1 = client.BatchV1Api()
     networking_v1 = client.NetworkingV1Api()
 
-    print("Analyzing Kubernetes network policies...")
+    # Print the header in the console
+    print("Kubernetes Policies with 0 endpoints attached are as below:")
+    print(f"NAMESPACE     NAME OF POLICY          ENDPOINTS-ATTACHED    RESOURCES-IN-THE-NAMESPACE")
 
     # Open a file to write the unmatched policies
     with open('kubernetes-unused-policies.txt', 'w') as file:
         # Print the header in the file
-        file.write(f"NAMESPACE     NAME-OF-POLICY          ENDPOINTS-ATTACHED    RESOURCES-IN-THE-NAMESPACE\n")
+        file.write(f"NAMESPACE     NAME OF POLICY          ENDPOINTS-ATTACHED    RESOURCES-IN-THE-NAMESPACE\n")
 
         # List all network policies
         network_policies = networking_v1.list_network_policy_for_all_namespaces()
@@ -46,7 +48,9 @@ def list_unmatched_network_policies():
 
             # Check for existence of any resources in the namespace
             if total_resources == 0 and endpoints_attached == 0:
-                file.write(f"{namespace: <13} {policy_name: <25} {endpoints_attached: <20} {total_resources}\n")
+                output_line = f"{namespace: <13} {policy_name: <25} {endpoints_attached: <20} {total_resources}"
+                print(output_line)
+                file.write(output_line + "\n")
 
     print("\nThe output has been written to kubernetes-unused-policies.txt. Please review it before any clean-up action.")
 
